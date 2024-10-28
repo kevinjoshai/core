@@ -25,6 +25,9 @@ from homeassistant.components.climate import (
     ATTR_HVAC_MODE,
     ATTR_TARGET_TEMP_HIGH,
     ATTR_TARGET_TEMP_LOW,
+    FAN_AUTO,
+    FAN_DIFFUSE,
+    FAN_ON,
     ClimateEntity,
     ClimateEntityFeature,
     HVACAction,
@@ -102,6 +105,17 @@ HVAC_MODES = [
     HVACMode.COOL,
 ]
 
+HA_TO_NEXIA_FAN_MODE_MAP = {
+    FAN_ON: "On",
+    FAN_AUTO: "Auto",
+    FAN_DIFFUSE: "Circulate",
+}
+NEXIA_TO_HA_FAN_MODE_MAP = {
+    value: key for key, value in HA_TO_NEXIA_FAN_MODE_MAP.items()
+}
+
+FAN_MODES = list(HA_TO_NEXIA_FAN_MODE_MAP)
+
 NEXIA_SUPPORTED = (
     ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
     | ClimateEntityFeature.TARGET_TEMPERATURE
@@ -176,7 +190,7 @@ class NexiaZone(NexiaThermostatZoneEntity, ClimateEntity):
         if self._has_emergency_heat:
             self._attr_supported_features |= ClimateEntityFeature.AUX_HEAT
         self._attr_preset_modes = zone.get_presets()
-        self._attr_fan_modes = thermostat.get_fan_modes()
+        self._attr_fan_modes = FAN_MODES
         self._attr_hvac_modes = HVAC_MODES
         self._attr_min_humidity = percent_conv(min_humidity)
         self._attr_max_humidity = percent_conv(max_humidity)
@@ -200,11 +214,12 @@ class NexiaZone(NexiaThermostatZoneEntity, ClimateEntity):
     @property
     def fan_mode(self):
         """Return the fan setting."""
-        return self._thermostat.get_fan_mode()
+        return NEXIA_TO_HA_FAN_MODE_MAP.get(self._thermostat.get_fan_mode())
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new target fan mode."""
-        await self._thermostat.set_fan_mode(fan_mode)
+        mode = HA_TO_NEXIA_FAN_MODE_MAP.get(fan_mode)
+        await self._thermostat.set_fan_mode(mode)
         self._signal_thermostat_update()
 
     async def async_set_hvac_run_mode(self, run_mode, hvac_mode):
